@@ -279,8 +279,8 @@ function matches_q(word, conditions) {
     }
 
     function getPossibleWords() {
-      if (guesses.length === 0) return WORDS;
-      return WORDS.filter(word => {
+      if (guesses.length === 0) return availableWords;
+      return availableWords.filter(word => {
         return guesses.every(({ guess, matchString }) => matches_q(word, encode(guess, matchString)));
       });
     }
@@ -321,7 +321,7 @@ function matches_q(word, conditions) {
         statusEl.textContent = 'Введите 5 букв.';
         return;
       }
-      if (!WORDS.includes(guess)) {
+      if (!availableWords.includes(guess)) {
         statusEl.textContent = 'Слово не из списка.';
         return;
       }

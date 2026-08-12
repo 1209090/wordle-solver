@@ -41,6 +41,8 @@
   <div class="filter-section">
     <label for="lettersFilter">Слова, содержащие буквы (через запятую или подряд):</label>
     <input type="text" id="lettersFilter" placeholder="например: а,р,т или арт">
+    <label for="excludedLettersFilter">Исключить слова с буквами:</label>
+    <input type="text" id="excludedLettersFilter" placeholder="например: б,в,г или бвг">
   </div>
   <div class="word-list" id="filteredList">
     <span class="count" id="filteredCount"></span>
@@ -230,6 +232,7 @@ function matches_q(word, conditions) {
     const submitBtn = document.getElementById('submitGuess');
     const guessesEl = document.getElementById('guesses');
     const lettersFilter = document.getElementById('lettersFilter');
+    const excludedLettersFilter = document.getElementById('excludedLettersFilter');
     const filteredCount = document.getElementById('filteredCount');
     const filteredWords = document.getElementById('filteredWords');
     const possibleCount = document.getElementById('possibleCount');
@@ -275,7 +278,33 @@ function matches_q(word, conditions) {
 
     function filterByLetters(words, letters) {
       if (letters.length === 0) return words;
-      return words.filter(word => letters.every(ch => word.includes(ch)));
+
+      const requiredCounts = {};
+      for (const letter of letters) {
+        requiredCounts[letter] = (requiredCounts[letter] || 0) + 1;
+      }
+
+      return words.filter(word => {
+        const availableCounts = {};
+        for (const letter of word) {
+          availableCounts[letter] = (availableCounts[letter] || 0) + 1;
+        }
+
+        return Object.entries(requiredCounts)
+          .every(([letter, count]) => (availableCounts[letter] || 0) >= count);
+      });
+    }
+
+    function excludeByLetters(words, letters) {
+      if (letters.length === 0) return words;
+
+      const excluded = new Set(letters);
+      return words.filter(word => ![...word].some(letter => excluded.has(letter)));
+    }
+
+    function getExcludedLetters() {
+      const raw = (excludedLettersFilter.value || '').replace(/[,\s]+/g, '').toLowerCase();
+      return raw ? raw.split('') : [];
     }
 
     function getPossibleWords() {
@@ -287,8 +316,9 @@ function matches_q(word, conditions) {
 
     function updateFilteredList() {
       const letters = getFilterLetters();
+      const excludedLetters = getExcludedLetters();
       const possible = getPossibleWords();
-      const list = letters.length ? possible.filter(w => letters.every(ch => w.includes(ch))) : possible;
+      const list = excludeByLetters(filterByLetters(possible, letters), excludedLetters);
       filteredCount.textContent = list.length + ' слов';
       filteredWords.textContent = list.slice(0, 200).join(', ');
       if (list.length > 200) filteredWords.textContent += '…';
@@ -303,8 +333,9 @@ function matches_q(word, conditions) {
 
     function applyFilters() {
       const letters = getFilterLetters();
+      const excludedLetters = getExcludedLetters();
       const possible = getPossibleWords();
-      const list = letters.length ? possible.filter(w => letters.every(ch => w.includes(ch))) : possible;
+      const list = excludeByLetters(filterByLetters(possible, letters), excludedLetters);
       filteredCount.textContent = list.length + ' слов';
       filteredWords.textContent = list.slice(0, 200).join(', ');
       if (list.length > 200) filteredWords.textContent += '…';
@@ -328,12 +359,19 @@ function matches_q(word, conditions) {
       const matchString = matches(secretWord, guess);
       guesses.push({ guess, matchString });
       guessInput.value = '';
+      lettersFilter.value = '';
+      excludedLettersFilter.value = '';
       renderGuesses();
       applyFilters();
       statusEl.textContent = 'Слово дня загружено. Вводите догадки.';
     });
 
+    guessInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') submitBtn.click();
+    });
+
     lettersFilter.addEventListener('input', applyFilters);
+    excludedLettersFilter.addEventListener('input', applyFilters);
 
     loadSecret().then(() => {
       applyFilters();
